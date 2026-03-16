@@ -1,0 +1,11 @@
+# LSP Cache
+.cache/
+.ccls-cache/
+
+# Visual Studio
+.vs/
+out/
+CMakeCache.txt
+
+# General
+build/
