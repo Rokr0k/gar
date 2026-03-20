@@ -1,0 +1,6 @@
+#ifndef GAR_CONFIG_H
+#define GAR_CONFIG_H
+
+#define GAR_VERSION "@PROJECT_VERSION@"
+
+#endif

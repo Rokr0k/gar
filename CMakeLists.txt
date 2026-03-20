@@ -8,7 +8,10 @@ project(
 find_package(zstd CONFIG REQUIRED)
 find_package(xxHash CONFIG REQUIRED)
 
-add_library(gar SHARED "src/fmap.c" "src/reader.c" "src/writer.c")
+configure_file("config.h.in" "config.h")
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+add_library(gar SHARED "src/gar.c" "src/fmap.c" "src/reader.c" "src/writer.c")
 target_sources(
   gar
   PUBLIC FILE_SET
@@ -26,13 +29,17 @@ target_compile_definitions(gar PRIVATE _CRT_SECURE_NO_WARNINGS)
 set_target_properties(gar PROPERTIES VERSION ${PROJECT_VERSION}
                                      SOVERSION ${PROJECT_VERSION_MAJOR})
 
+add_executable(gartool "tool/main.c")
+target_link_libraries(gartool gar)
+target_compile_features(gartool PUBLIC c_std_11)
+target_compile_definitions(gartool PRIVATE _CRT_SECURE_NO_WARNINGS)
+set_target_properties(gartool PROPERTIES OUTPUT_NAME gar)
+
 install(
-  TARGETS gar
+  TARGETS gar gartool
   EXPORT garTargets
-  LIBRARY DESTINATION "lib"
-  RUNTIME DESTINATION "bin"
-          FILE_SET HEADERS
-          DESTINATION "include")
+  LIBRARY
+  RUNTIME FILE_SET HEADERS)
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(

@@ -86,7 +86,7 @@ int gar_writer_add(gar_writer_t *wr, const char *name, const char *file) {
     return -1;
   }
 
-  uint64_t size = ZSTD_compress(buffer, entry.csize, fmap.ptr, entry.usize, 18);
+  uint64_t size = ZSTD_compress(buffer, entry.csize, fmap.ptr, entry.usize, 0);
   if (ZSTD_isError(size)) {
     gar_fmap_unmap(&fmap);
     free(buffer);
