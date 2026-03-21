@@ -37,6 +37,8 @@ int gar_reader_open(gar_reader_t *rd, const char *file) {
     return -1;
   }
 
+  gar_fmap_unmap(&rd->src);
+
   if (gar_fmap_map(&rd->src, file) != 0) {
     return -1;
   }
@@ -63,7 +65,9 @@ int gar_reader_find(gar_reader_t *rd, const char *name, uint32_t *id) {
 
   for (uint32_t i = 0; i < header.index_count; i++) {
     if (index[i].key == key) {
-      *id = i;
+      if (id != NULL) {
+        *id = i;
+      }
       return 0;
     }
   }

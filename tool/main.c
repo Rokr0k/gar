@@ -5,10 +5,10 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
+#if defined(__unix__)
 #include <dirent.h>
+#elif defined(_WIN32)
+#include <windows.h>
 #endif
 
 static void print_version(const char *arg0);
@@ -137,7 +137,37 @@ void archive_item(gar_writer_t *wr, const char *item) {
 
   case S_IFDIR: {
 
-#ifdef _WIN32
+#if defined(__unix__)
+
+    DIR *dir = opendir(item);
+    if (dir == NULL) {
+      printf("Error: opendir(\"%s\")\n", item);
+      return;
+    }
+
+    struct dirent *dirent;
+    while ((dirent = readdir(dir)) != NULL) {
+      if (strcmp(dirent->d_name, ".") == 0 ||
+          strcmp(dirent->d_name, "..") == 0) {
+        continue;
+      }
+
+      size_t len_base = strlen(item);
+      size_t len_item = strlen(dirent->d_name);
+      char *name = malloc(len_base + len_item + 2);
+      strncpy(name, item, len_base);
+      name[len_base] = '/';
+      strncpy(name + len_base + 1, dirent->d_name, len_item);
+      name[len_base + len_item + 1] = '\0';
+
+      archive_item(wr, name);
+
+      free(name);
+    }
+
+    closedir(dir);
+
+#elif defined(_WIN32)
 
     size_t len_base = strlen(item);
     char *name = malloc(len_base + 3);
@@ -174,33 +204,7 @@ void archive_item(gar_writer_t *wr, const char *item) {
 
 #else
 
-    DIR *dir = opendir(item);
-    if (dir == NULL) {
-      printf("Error: opendir(\"%s\")\n", item);
-      return;
-    }
-
-    struct dirent *dirent;
-    while ((dirent = readdir(dir)) != NULL) {
-      if (strcmp(dirent->d_name, ".") == 0 ||
-          strcmp(dirent->d_name, "..") == 0) {
-        continue;
-      }
-
-      size_t len_base = strlen(item);
-      size_t len_item = strlen(dirent->d_name);
-      char *name = malloc(len_base + len_item + 2);
-      strncpy(name, item, len_base);
-      name[len_base] = '/';
-      strncpy(name + len_base + 1, dirent->d_name, len_item);
-      name[len_base + len_item + 1] = '\0';
-
-      archive_item(wr, name);
-
-      free(name);
-    }
-
-    closedir(dir);
+#error "No implementation available."
 
 #endif
 

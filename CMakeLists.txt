@@ -22,7 +22,10 @@ target_sources(
          "include/gar/gar.h"
          "include/gar/exports.h"
          "include/gar/reader.h"
-         "include/gar/writer.h")
+         "include/gar/writer.h"
+         "include/gar/gar.hpp"
+         "include/gar/reader.hpp"
+         "include/gar/writer.hpp")
 target_link_libraries(gar PRIVATE zstd::libzstd xxHash::xxhash)
 target_compile_features(gar PUBLIC c_std_11)
 target_compile_definitions(gar PRIVATE _CRT_SECURE_NO_WARNINGS)

@@ -1,6 +1,57 @@
 #include "fmap.h"
 
-#ifdef _WIN32
+#if defined(__unix__)
+
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+int gar_fmap_map(gar_fmap_t *fmap, const char *file) {
+  if (file == NULL || fmap == NULL) {
+    return -1;
+  }
+
+  fmap->ptr = NULL;
+  fmap->size = 0;
+
+  int fd = open(file, O_RDONLY);
+  if (fd == -1) {
+    return -1;
+  }
+
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    close(fd);
+    return -1;
+  }
+
+  uint64_t size = st.st_size;
+
+  void *ptr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (ptr == MAP_FAILED) {
+    close(fd);
+    return -1;
+  }
+
+  fmap->ptr = ptr;
+  fmap->size = size;
+
+  return 0;
+}
+
+void gar_fmap_unmap(gar_fmap_t *fmap) {
+  if (fmap == NULL || fmap->ptr == NULL) {
+    return;
+  }
+
+  munmap(fmap->ptr, fmap->size);
+
+  fmap->ptr = NULL;
+  fmap->size = 0;
+}
+
+#elif defined(_WIN32)
 
 #include <windows.h>
 
@@ -59,53 +110,6 @@ void gar_fmap_unmap(gar_fmap_t *fmap) {
 
 #else
 
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-int gar_fmap_map(gar_fmap_t *fmap, const char *file) {
-  if (file == NULL || fmap == NULL) {
-    return -1;
-  }
-
-  fmap->ptr = NULL;
-  fmap->size = 0;
-
-  int fd = open(file, O_RDONLY);
-  if (fd == -1) {
-    return -1;
-  }
-
-  struct stat st;
-  if (fstat(fd, &st) != 0) {
-    close(fd);
-    return -1;
-  }
-
-  uint64_t size = st.st_size;
-
-  void *ptr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (ptr == MAP_FAILED) {
-    close(fd);
-    return -1;
-  }
-
-  fmap->ptr = ptr;
-  fmap->size = size;
-
-  return 0;
-}
-
-void gar_fmap_unmap(gar_fmap_t *fmap) {
-  if (fmap == NULL || fmap->ptr == NULL) {
-    return;
-  }
-
-  munmap(fmap->ptr, fmap->size);
-
-  fmap->ptr = NULL;
-  fmap->size = 0;
-}
+#error "No implementation available."
 
 #endif
