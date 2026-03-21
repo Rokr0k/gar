@@ -19,7 +19,7 @@ target_sources(
          BASE_DIRS
          "include"
          FILES
-         "include/gar.h"
+         "include/gar/gar.h"
          "include/gar/exports.h"
          "include/gar/reader.h"
          "include/gar/writer.h")
