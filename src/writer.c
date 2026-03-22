@@ -63,7 +63,7 @@ int gar_writer_set_file(gar_writer_t *wr, const char *file) {
   return 0;
 }
 
-int gar_writer_add(gar_writer_t *wr, const char *name, const char *file) {
+int gar_writer_add_file(gar_writer_t *wr, const char *name, const char *file) {
   if (wr == NULL || name == NULL || file == NULL) {
     return -1;
   }
@@ -73,29 +73,41 @@ int gar_writer_add(gar_writer_t *wr, const char *name, const char *file) {
     return -1;
   }
 
-  gar_entry_t entry = {
-      .key = XXH3_64bits(name, strlen(name)),
-      .offset = ftell(wr->fp),
-      .usize = fmap.size,
-      .csize = ZSTD_compressBound(fmap.size),
-  };
-
-  void *buffer = malloc(entry.csize);
-  if (buffer == NULL) {
+  if (gar_writer_add_memory(wr, name, fmap.ptr, fmap.size) != 0) {
     gar_fmap_unmap(&fmap);
-    return -1;
-  }
-
-  uint64_t size = ZSTD_compress(buffer, entry.csize, fmap.ptr, entry.usize, 0);
-  if (ZSTD_isError(size)) {
-    gar_fmap_unmap(&fmap);
-    free(buffer);
     return -1;
   }
 
   gar_fmap_unmap(&fmap);
 
-  entry.csize = size;
+  return 0;
+}
+
+int gar_writer_add_memory(gar_writer_t *wr, const char *name, const void *ptr,
+                          uint64_t size) {
+  if (wr == NULL || name == NULL || ptr == NULL || size == 0) {
+    return -1;
+  }
+
+  gar_entry_t entry = {
+      .key = XXH3_64bits(name, strlen(name)),
+      .offset = ftell(wr->fp),
+      .usize = size,
+      .csize = ZSTD_compressBound(size),
+  };
+
+  void *buffer = malloc(entry.csize);
+  if (buffer == NULL) {
+    return -1;
+  }
+
+  uint64_t csize = ZSTD_compress(buffer, entry.csize, ptr, entry.usize, 0);
+  if (ZSTD_isError(csize)) {
+    free(buffer);
+    return -1;
+  }
+
+  entry.csize = csize;
 
   if (fwrite(buffer, 1, entry.csize, wr->fp) < entry.csize) {
     fseek(wr->fp, entry.offset, SEEK_SET);

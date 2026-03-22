@@ -3,6 +3,7 @@
 
 #include "writer.h"
 #include <string>
+#include <vector>
 
 namespace gar {
 class Writer {
@@ -27,7 +28,12 @@ public:
   }
 
   bool Add(const std::string &name, const std::string &file) {
-    return gar_writer_add(wr, name.c_str(), file.c_str()) == 0;
+    return gar_writer_add_file(wr, name.c_str(), file.c_str()) == 0;
+  }
+
+  bool Add(const std::string &name, const std::vector<uint8_t> &buffer) {
+    return gar_writer_add_memory(wr, name.c_str(), buffer.data(),
+                                 buffer.size()) == 0;
   }
 
   bool Finish() { return gar_writer_finish(wr) == 0; }

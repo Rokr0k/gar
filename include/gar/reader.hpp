@@ -2,6 +2,7 @@
 #define GAR_READER_HPP
 
 #include "reader.h"
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -31,18 +32,18 @@ public:
     return gar_reader_find(rd, name.c_str(), nullptr) == 0;
   }
 
-  std::vector<uint8_t> Read(const std::string &name) const {
-    uint32_t id;
+  std::vector<std::uint8_t> Read(const std::string &name) const {
+    std::uint32_t id;
     if (gar_reader_find(rd, name.c_str(), &id) != 0) {
       return {};
     }
 
-    uint64_t size;
+    std::uint64_t size;
     if (gar_reader_size(rd, id, &size) != 0) {
       return {};
     }
 
-    std::vector<uint8_t> buffer(size);
+    std::vector<std::uint8_t> buffer(size);
     if (gar_reader_read(rd, id, buffer.data(), &size) != 0) {
       return {};
     }
