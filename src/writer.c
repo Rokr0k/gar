@@ -15,6 +15,7 @@ struct entry_node {
 struct gar_writer {
   FILE *fp;
   struct entry_node *index;
+  gar_writer_option_t option;
 };
 
 gar_writer_t *gar_writer_alloc(void) {
@@ -44,6 +45,19 @@ void gar_writer_free(gar_writer_t *wr) {
   }
 
   free(wr);
+}
+
+void gar_writer_set_option(gar_writer_t *wr,
+                           const gar_writer_option_t *option) {
+  if (wr == NULL) {
+    return;
+  }
+
+  if (option == NULL) {
+    wr->option = (gar_writer_option_t){};
+  } else {
+    wr->option = *option;
+  }
 }
 
 int gar_writer_set_file(gar_writer_t *wr, const char *file) {
@@ -101,7 +115,8 @@ int gar_writer_add_memory(gar_writer_t *wr, const char *name, const void *ptr,
     return -1;
   }
 
-  uint64_t csize = ZSTD_compress(buffer, entry.csize, ptr, entry.usize, 0);
+  uint64_t csize = ZSTD_compress(buffer, entry.csize, ptr, entry.usize,
+                                 wr->option.compression_level);
   if (ZSTD_isError(csize)) {
     free(buffer);
     return -1;

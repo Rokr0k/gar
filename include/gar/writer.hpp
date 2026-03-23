@@ -23,6 +23,10 @@ public:
 
   ~Writer() { gar_writer_free(wr); }
 
+  void SetOption(const gar_writer_option_t &option) {
+    gar_writer_set_option(wr, &option);
+  }
+
   bool SetFile(const std::string &file) {
     return gar_writer_set_file(wr, file.c_str()) == 0;
   }

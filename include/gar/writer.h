@@ -10,9 +10,16 @@ extern "C" {
 
 typedef struct gar_writer gar_writer_t;
 
+typedef struct gar_writer_option {
+  int compression_level;
+} gar_writer_option_t;
+
 GAR_API gar_writer_t *gar_writer_alloc(void);
 
 GAR_API void gar_writer_free(gar_writer_t *wr);
+
+GAR_API void gar_writer_set_option(gar_writer_t *wr,
+                                   const gar_writer_option_t *option);
 
 GAR_API int gar_writer_set_file(gar_writer_t *wr, const char *file);
 
