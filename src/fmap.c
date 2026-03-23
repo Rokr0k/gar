@@ -110,6 +110,64 @@ void gar_fmap_unmap(gar_fmap_t *fmap) {
 
 #else
 
-#error "No implementation available."
+#include <stdio.h>
+#include <stdlib.h>
+
+int gar_fmap_map(gar_fmap_t *fmap, const char *file) {
+  if (file == NULL || fmap == NULL) {
+    return -1;
+  }
+
+  fmap->ptr = NULL;
+  fmap->size = 0;
+
+  FILE *fp = fopen(file, "rb");
+  if (fp == NULL) {
+    return -1;
+  }
+
+  if (fseek(fp, 0, SEEK_END) != 0) {
+    fclose(fp);
+    return -1;
+  }
+
+  long size = ftell(fp);
+  if (size < 0) {
+    fclose(fp);
+    return -1;
+  }
+
+  rewind(fp);
+
+  void *ptr = malloc(fmap->size);
+  if (ptr == NULL) {
+    fclose(fp);
+    return -1;
+  }
+
+  if (fread(ptr, 1, size, fp) < size) {
+    free(ptr);
+    fclose(fp);
+    return -1;
+  }
+
+  fclose(fp);
+
+  fmap->ptr = ptr;
+  fmap->size = size;
+
+  return 0;
+}
+
+void gar_fmap_unmap(gar_fmap_t *fmap) {
+  if (fmap == NULL || fmap->ptr == NULL) {
+    return;
+  }
+
+  free(fmap->ptr);
+
+  fmap->ptr = NULL;
+  fmap->size = 0;
+}
 
 #endif
