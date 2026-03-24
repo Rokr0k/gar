@@ -7,7 +7,8 @@
 
 typedef struct gar_header {
   uint32_t signature;
-  uint32_t index_count;
+  uint32_t flags;
+  uint64_t index_count;
   uint64_t index_offset;
 } gar_header_t;
 

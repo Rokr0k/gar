@@ -40,8 +40,10 @@ set_target_properties(gartool PROPERTIES OUTPUT_NAME gar)
 install(
   TARGETS gar gartool
   EXPORT garTargets
-  LIBRARY
-  RUNTIME FILE_SET HEADERS)
+  LIBRARY DESTINATION "lib"
+  RUNTIME DESTINATION "bin"
+          FILE_SET HEADERS
+          DESTINATION "include")
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(

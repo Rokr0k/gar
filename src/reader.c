@@ -9,6 +9,8 @@
 
 struct gar_reader {
   gar_fmap_t src;
+  const gar_header_t *header;
+  const gar_entry_t *index;
 };
 
 gar_reader_t *gar_reader_alloc(void) {
@@ -43,11 +45,13 @@ int gar_reader_open(gar_reader_t *rd, const char *file) {
     return -1;
   }
 
-  const gar_header_t *header = (const gar_header_t *)rd->src.ptr;
-  if (header->signature != GAR_SIGNATURE) {
+  rd->header = (const gar_header_t *)rd->src.ptr;
+  if (rd->header->signature != GAR_SIGNATURE) {
     gar_fmap_unmap(&rd->src);
     return -1;
   }
+
+  rd->index = (const gar_entry_t *)(rd->src.ptr + rd->header->index_offset);
 
   return 0;
 }
@@ -57,14 +61,10 @@ int gar_reader_find(gar_reader_t *rd, const char *name, uint32_t *id) {
     return -1;
   }
 
-  gar_header_t header = *(const gar_header_t *)rd->src.ptr;
-  const gar_entry_t *index =
-      (const gar_entry_t *)(rd->src.ptr + header.index_offset);
-
   uint64_t key = XXH3_64bits(name, strlen(name));
 
-  for (uint32_t i = 0; i < header.index_count; i++) {
-    if (index[i].key == key) {
+  for (uint32_t i = 0; i < rd->header->index_count; i++) {
+    if (rd->index[i].key == key) {
       if (id != NULL) {
         *id = i;
       }
@@ -80,13 +80,11 @@ int gar_reader_size(gar_reader_t *rd, uint32_t id, uint64_t *size) {
     return -1;
   }
 
-  gar_header_t header = *(const gar_header_t *)rd->src.ptr;
-  if (id >= header.index_count) {
+  if (id >= rd->header->index_count) {
     return -1;
   }
 
-  gar_entry_t entry =
-      ((const gar_entry_t *)(rd->src.ptr + header.index_offset))[id];
+  gar_entry_t entry = rd->index[id];
 
   *size = entry.usize;
   return 0;
@@ -98,13 +96,11 @@ int gar_reader_read(gar_reader_t *rd, uint32_t id, uint8_t *ptr,
     return -1;
   }
 
-  gar_header_t header = *(const gar_header_t *)rd->src.ptr;
-  if (id >= header.index_count) {
+  if (id >= rd->header->index_count) {
     return -1;
   }
 
-  gar_entry_t entry =
-      ((const gar_entry_t *)(rd->src.ptr + header.index_offset))[id];
+  gar_entry_t entry = rd->index[id];
 
   uint64_t usize = ZSTD_decompress(ptr, entry.usize, rd->src.ptr + entry.offset,
                                    entry.csize);

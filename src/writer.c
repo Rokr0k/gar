@@ -152,6 +152,7 @@ int gar_writer_finish(gar_writer_t *wr) {
 
   gar_header_t header = {
       .signature = GAR_SIGNATURE,
+      .flags = 0,
       .index_count = 0,
       .index_offset = ftell(wr->fp),
   };
