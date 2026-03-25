@@ -5,13 +5,15 @@ project(
   VERSION 0.0.1
   LANGUAGES C CXX)
 
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
 find_package(zstd CONFIG REQUIRED)
 find_package(xxHash CONFIG REQUIRED)
 
 configure_file("config.h.in" "config.h")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_library(gar SHARED "src/gar.c" "src/fmap.c" "src/reader.c" "src/writer.c")
+add_library(gar "src/gar.c" "src/fmap.c" "src/reader.c" "src/writer.c")
 target_sources(
   gar
   PUBLIC FILE_SET
@@ -32,6 +34,10 @@ target_compile_definitions(gar PRIVATE _CRT_SECURE_NO_WARNINGS)
 set_target_properties(gar PROPERTIES VERSION ${PROJECT_VERSION}
                                      SOVERSION ${PROJECT_VERSION_MAJOR})
 
+if(NOT BUILD_SHARED_LIBS)
+  target_compile_definitions(gar PUBLIC GAR_STATIC)
+endif()
+
 add_executable(gartool "tool/main.cpp")
 target_link_libraries(gartool gar)
 target_compile_features(gartool PUBLIC cxx_std_17)
@@ -41,6 +47,7 @@ install(
   TARGETS gar gartool
   EXPORT garTargets
   LIBRARY DESTINATION "lib"
+  ARCHIVE DESTINATION "lib"
   RUNTIME DESTINATION "bin"
           FILE_SET HEADERS
           DESTINATION "include")
