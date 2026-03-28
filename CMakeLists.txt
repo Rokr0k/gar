@@ -9,6 +9,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 find_package(zstd CONFIG REQUIRED)
 find_package(xxHash CONFIG REQUIRED)
+find_package(unofficial-sodium CONFIG REQUIRED)
 
 configure_file("config.h.in" "config.h")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -28,7 +29,8 @@ target_sources(
          "include/gar/gar.hpp"
          "include/gar/reader.hpp"
          "include/gar/writer.hpp")
-target_link_libraries(gar PRIVATE zstd::libzstd xxHash::xxhash)
+target_link_libraries(gar PRIVATE zstd::libzstd xxHash::xxhash
+                                  unofficial-sodium::sodium)
 target_compile_features(gar PUBLIC c_std_11)
 target_compile_definitions(gar PRIVATE _CRT_SECURE_NO_WARNINGS)
 set_target_properties(gar PROPERTIES VERSION ${PROJECT_VERSION}

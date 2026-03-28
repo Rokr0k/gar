@@ -2,7 +2,6 @@
 #define GAR_READER_HPP
 
 #include "reader.h"
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -24,26 +23,26 @@ public:
 
   ~Reader() { gar_reader_free(rd); }
 
-  bool Open(const std::string &file) {
-    return gar_reader_open(rd, file.c_str()) == 0;
+  bool Open(const std::string &file, const uint8_t *key = nullptr) {
+    return gar_reader_open(rd, file.c_str(), key) == 0;
   }
 
   bool Find(const std::string &name) const {
     return gar_reader_find(rd, name.c_str(), nullptr) == 0;
   }
 
-  std::vector<std::uint8_t> Read(const std::string &name) const {
-    std::uint32_t id;
+  std::vector<uint8_t> Read(const std::string &name) const {
+    uint32_t id;
     if (gar_reader_find(rd, name.c_str(), &id) != 0) {
       return {};
     }
 
-    std::uint64_t size;
+    uint64_t size;
     if (gar_reader_size(rd, id, &size) != 0) {
       return {};
     }
 
-    std::vector<std::uint8_t> buffer(size);
+    std::vector<uint8_t> buffer(size);
     if (gar_reader_read(rd, id, buffer.data(), &size) != 0) {
       return {};
     }

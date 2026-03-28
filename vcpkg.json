@@ -1,6 +1,7 @@
 {
     "dependencies": [
         "zstd",
-        "xxhash"
+        "xxhash",
+        "libsodium"
     ]
 }

@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (gar_reader_open(rd, "res.gar") != 0) {
+  if (gar_reader_open(rd, "res.gar", NULL) != 0) {
     return 1;
   }
 

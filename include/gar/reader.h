@@ -14,7 +14,8 @@ GAR_API gar_reader_t *gar_reader_alloc(void);
 
 GAR_API void gar_reader_free(gar_reader_t *rd);
 
-GAR_API int gar_reader_open(gar_reader_t *rd, const char *file);
+GAR_API int gar_reader_open(gar_reader_t *rd, const char *file,
+                            const uint8_t *key);
 
 GAR_API int gar_reader_find(gar_reader_t *rd, const char *name, uint32_t *id);
 
