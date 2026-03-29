@@ -17,6 +17,8 @@ typedef struct gar_version {
 
 extern GAR_API const gar_version_t *gar_version;
 
+GAR_API int gar_enc_init(void);
+
 #ifdef __cplusplus
 }
 #endif

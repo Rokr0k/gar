@@ -10,6 +10,7 @@
 
 struct entry_node {
   gar_entry_t entry;
+  uint8_t enc_nonce[crypto_secretbox_NONCEBYTES];
   struct entry_node *next;
 };
 
@@ -65,8 +66,20 @@ void gar_writer_set_option(gar_writer_t *wr,
   }
 }
 
-int gar_writer_set_file(gar_writer_t *wr, const char *file,
-                        const uint8_t *key) {
+void gar_writer_set_enc_key(gar_writer_t *wr, const uint8_t *key) {
+  if (wr == NULL) {
+    return;
+  }
+
+  if (key == NULL) {
+    wr->header.flag &= ~GAR_FLAG_ENC;
+  } else {
+    wr->header.flag |= GAR_FLAG_ENC;
+    memcpy(wr->enc_key, key, sizeof(wr->enc_key));
+  }
+}
+
+int gar_writer_set_file(gar_writer_t *wr, const char *file) {
   if (wr == NULL || file == NULL) {
     return -1;
   }
@@ -78,12 +91,6 @@ int gar_writer_set_file(gar_writer_t *wr, const char *file,
 
   if (fseek(wr->fp, sizeof(gar_header_t), SEEK_SET) != 0) {
     return -1;
-  }
-
-  if (key != NULL) {
-    memcpy(wr->enc_key, key, sizeof(wr->enc_key));
-  } else {
-    memset(wr->enc_key, 0, sizeof(wr->enc_key));
   }
 
   return 0;
@@ -120,8 +127,9 @@ int gar_writer_add_memory(gar_writer_t *wr, const char *name, const void *ptr,
       .offset = ftell(wr->fp),
       .usize = size,
       .csize = ZSTD_compressBound(size),
-      .enc_nonce = {},
   };
+
+  uint8_t enc_nonce[crypto_secretbox_NONCEBYTES];
 
   void *buffer = malloc(entry.csize);
   if (buffer == NULL) {
@@ -137,27 +145,26 @@ int gar_writer_add_memory(gar_writer_t *wr, const char *name, const void *ptr,
 
   entry.csize = csize;
 
-  if (!sodium_is_zero(wr->enc_key, sizeof(wr->enc_key))) {
-    randombytes_buf(entry.enc_nonce, sizeof(entry.enc_nonce));
+  if (wr->header.flag & GAR_FLAG_ENC) {
+    randombytes_buf(enc_nonce, sizeof(enc_nonce));
 
     void *new_buffer = malloc(entry.csize + crypto_secretbox_MACBYTES);
     if (new_buffer == NULL) {
-      memset(entry.enc_nonce, 0, sizeof(entry.enc_nonce));
-      goto enc_fail;
+      free(buffer);
+      return -1;
     }
 
-    if (crypto_secretbox_easy(new_buffer, buffer, entry.csize, entry.enc_nonce,
+    if (crypto_secretbox_easy(new_buffer, buffer, entry.csize, enc_nonce,
                               wr->enc_key) != 0) {
-      memset(entry.enc_nonce, 0, sizeof(entry.enc_nonce));
+      free(buffer);
       free(new_buffer);
-      goto enc_fail;
+      return -1;
     }
 
     free(buffer);
     buffer = new_buffer;
     entry.csize += crypto_secretbox_MACBYTES;
   }
-enc_fail:
 
   if (fwrite(buffer, 1, entry.csize, wr->fp) < entry.csize) {
     fseek(wr->fp, entry.offset, SEEK_SET);
@@ -174,6 +181,7 @@ enc_fail:
   }
 
   node->entry = entry;
+  memcpy(node->enc_nonce, enc_nonce, sizeof(enc_nonce));
   node->next = wr->index;
   wr->index = node;
   wr->header.index_size += sizeof(entry);
@@ -196,35 +204,52 @@ int gar_writer_finish(gar_writer_t *wr) {
     index[i] = node->entry;
   }
 
-  if (!sodium_is_zero(wr->enc_key, sizeof(wr->enc_key))) {
-    randombytes_buf(wr->header.enc_nonce, sizeof(wr->header.enc_nonce));
+  uint8_t enc_nonce[crypto_secretbox_NONCEBYTES];
+
+  if (wr->header.flag & GAR_FLAG_ENC) {
+    randombytes_buf(enc_nonce, sizeof(enc_nonce));
 
     gar_entry_t *new_index =
         malloc(wr->header.index_size + crypto_secretbox_MACBYTES);
     if (new_index == NULL) {
-      memset(wr->header.enc_nonce, 0, sizeof(wr->header.enc_nonce));
-      goto enc_fail;
+      free(index);
+      return -1;
     }
 
     if (crypto_secretbox_easy((uint8_t *)new_index, (const uint8_t *)index,
-                              wr->header.index_size, wr->header.enc_nonce,
+                              wr->header.index_size, enc_nonce,
                               wr->enc_key) != 0) {
+      free(index);
       free(new_index);
-      memset(wr->header.enc_nonce, 0, sizeof(wr->header.enc_nonce));
-      goto enc_fail;
+      return -1;
     }
 
     free(index);
     index = new_index;
     wr->header.index_size += crypto_secretbox_MACBYTES;
   }
-enc_fail:
 
   wr->header.index_offset = ftell(wr->fp);
 
   if (fwrite(index, 1, wr->header.index_size, wr->fp) < wr->header.index_size) {
     free(index);
     return -1;
+  }
+
+  if (wr->header.flag & GAR_FLAG_ENC) {
+    if (fwrite(enc_nonce, sizeof(enc_nonce), 1, wr->fp) < 1) {
+      free(index);
+      return -1;
+    }
+
+    node = wr->index;
+    while (node != NULL) {
+      if (fwrite(node->enc_nonce, sizeof(node->enc_nonce), 1, wr->fp) < 1) {
+        free(index);
+        return -1;
+      }
+      node = node->next;
+    }
   }
 
   if (fseek(wr->fp, 0, SEEK_SET) != 0) {

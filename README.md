@@ -21,18 +21,61 @@ cmake --install build --prefix=$prefix
 ## Usage
 
 ```cmake
+# CMakeFiles.txt
+
 find_package(gar CONFIG REQUIRED)
 
+string(RANDOM
+    LENGTH 64
+    ALPHABET 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ
+    res_enc_key)
+
+add_executable(exe main.c)
 target_link_libraries(exe gar::gar)
+target_compile_definitions(exe PRIVATE RES_ENC_KEY="\"${res_enc_key}\"")
 
 add_custom_target(res ALL
-    COMMAND gar::gartool archive "${CMAKE_CURRENT_BINARY_DIR}/res.gar" "res"
+    COMMAND ${CMAKE_COMMAND} -E env "GAR_ENV_KEY=${res_enc_key}" --
+            gar::gartool archive "${CMAKE_CURRENT_BINARY_DIR}/res.gar" "res"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ```
 
 ```c
+/* main.c */
 #include <gar/gar.h>
+#include <stdint.h>
 #include <stdlib.h>
+
+static void hex_to_bytes(const char *hex, uint8_t *bytes) {
+  for (int i = 0; i < 32; i++) {
+    if (hex[2 * i] == '\0') {
+      bytes[i] = 0;
+      break;
+    }
+
+    if (hex[2 * i] >= '0' && hex[2 * i] <= '9') {
+      bytes[i] = (hex[2 * i] - '0') << 4;
+    } else if (hex[2 * i] >= 'A' && hex[2 * i] <= 'Z') {
+      bytes[i] = (hex[2 * i] - 'A' + 10) << 4;
+    } else if (hex[2 * i] >= 'a' && hex[2 * i] <= 'z') {
+      bytes[i] = (hex[2 * i] - 'a' + 10) << 4;
+    } else {
+      bytes[i] = 0;
+    }
+
+    if (hex[2 * i + 1] == '\0') {
+      break;
+    }
+
+    if (hex[2 * i + 1] >= '0' && hex[2 * i + 1] <= '9') {
+      bytes[i] |= hex[2 * i + 1] - '0';
+    } else if (hex[2 * i + 1] >= 'A' && hex[2 * i + 1] <= 'Z') {
+      bytes[i] |= hex[2 * i + 1] - 'A' + 10;
+    } else if (hex[2 * i + 1] >= 'a' && hex[2 * i + 1] <= 'z') {
+      bytes[i] |= hex[2 * i + 1] - 'a' + 10;
+    }
+  }
+}
 
 int main(int argc, char **argv) {
   gar_reader_t *rd = gar_reader_alloc();
@@ -40,7 +83,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (gar_reader_open(rd, "res.gar", NULL) != 0) {
+  uint8_t key[32] = {};
+  hex_to_bytes(RES_ENC_KEY, key)
+  if (gar_reader_open(rd, "res.gar", key) != 0) {
     return 1;
   }
 

@@ -25,6 +25,8 @@ private:
 };
 
 inline const Version version = gar_version;
+
+inline bool InitEnc() { return gar_enc_init() == 0; }
 } // namespace gar
 
 #endif

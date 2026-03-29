@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <gar/gar.hpp>
@@ -10,6 +11,8 @@ static void print_help(const std::string &arg0, const std::string &cmd);
 
 static void archive(const std::vector<std::string> &args);
 static void extract(const std::vector<std::string> &args);
+
+static void get_key_from_code(const std::string &code, uint8_t *key);
 
 int main(int argc, char **argv) {
   std::vector<std::string> args(argv, argv + argc);
@@ -70,6 +73,9 @@ void print_help(const std::string &arg0, const std::string &cmd) {
               << "Create an archive file that contains the following files and "
                  "directories.\n"
               << "Search is done recursively.\n"
+              << "\n"
+              << "Defining `GAR_ENC_KEY` environment variable with 256-bit hex "
+                 "code enables encryption of the archive.\n"
               << "\n";
   } else if (cmd == "extract") {
     std::cout
@@ -80,6 +86,9 @@ void print_help(const std::string &arg0, const std::string &cmd) {
            "know the name of each of the files.\n"
         << "You have to specify every items to extract the whole contents of "
            "a GAR file.\n"
+        << "\n"
+        << "Defining `GAR_ENC_KEY` environment variable with 256-bit hex code "
+           "enables decryption of the archive.\n"
         << "\n";
   } else {
     print_help(arg0, "");
@@ -93,6 +102,18 @@ void archive(const std::vector<std::string> &args) {
   }
 
   gar::Writer writer;
+
+  const char *enc_key = std::getenv("GAR_ENC_KEY");
+  if (enc_key != nullptr) {
+    if (!gar::InitEnc()) {
+      std::cout << "Error: gar::InitEnc()\n";
+      return;
+    }
+
+    uint8_t key[32];
+    get_key_from_code(enc_key, key);
+    writer.SetKey(key);
+  }
 
   if (!writer.SetFile(args[2])) {
     std::cout << "Error: gar::Writer::SetFile(\"" << args[2] << "\")\n";
@@ -141,8 +162,21 @@ void extract(const std::vector<std::string> &args) {
   }
 
   gar::Reader reader;
+  const uint8_t *key = nullptr;
+  uint8_t k[32];
 
-  if (!reader.Open(args[2])) {
+  const char *enc_key = std::getenv("GAR_ENC_KEY");
+  if (enc_key != nullptr) {
+    if (!gar::InitEnc()) {
+      std::cout << "Error: gar::InitEnc()\n";
+      return;
+    }
+
+    get_key_from_code(enc_key, k);
+    key = k;
+  }
+
+  if (!reader.Open(args[2], key)) {
     std::cout << "Error: gar::Reader::Open(\"" << args[2] << "\")\n";
     return;
   }
@@ -159,5 +193,15 @@ void extract(const std::vector<std::string> &args) {
 
     std::ofstream os(path, std::ios::binary);
     os.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+  }
+}
+
+void get_key_from_code(const std::string &code, uint8_t *key) {
+  for (int i = 0; i < 32; i++) {
+    try {
+      key[i] = std::stoi(code.substr(i * 2, 2), nullptr, 16);
+    } catch (...) {
+      key[i] = 0;
+    }
   }
 }

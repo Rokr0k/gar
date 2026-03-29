@@ -21,8 +21,9 @@ GAR_API void gar_writer_free(gar_writer_t *wr);
 GAR_API void gar_writer_set_option(gar_writer_t *wr,
                                    const gar_writer_option_t *option);
 
-GAR_API int gar_writer_set_file(gar_writer_t *wr, const char *file,
-                                const uint8_t *key);
+GAR_API void gar_writer_set_enc_key(gar_writer_t *wr, const uint8_t *key);
+
+GAR_API int gar_writer_set_file(gar_writer_t *wr, const char *file);
 
 GAR_API int gar_writer_add_file(gar_writer_t *wr, const char *name,
                                 const char *file);

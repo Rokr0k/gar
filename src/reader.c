@@ -13,6 +13,7 @@ struct gar_reader {
   const gar_header_t *header;
   gar_entry_t *index;
   size_t index_count;
+  const uint8_t *enc_nonces;
   uint8_t enc_key[crypto_secretbox_KEYBYTES];
 };
 
@@ -32,7 +33,7 @@ void gar_reader_free(gar_reader_t *rd) {
     return;
   }
 
-  if (!sodium_is_zero(rd->header->enc_nonce, sizeof(rd->header->enc_nonce))) {
+  if (rd->header != NULL && (rd->header->flag & GAR_FLAG_ENC)) {
     free(rd->index);
   }
 
@@ -46,7 +47,7 @@ int gar_reader_open(gar_reader_t *rd, const char *file, const uint8_t *key) {
     return -1;
   }
 
-  if (!sodium_is_zero(rd->header->enc_nonce, sizeof(rd->header->enc_nonce))) {
+  if (rd->header != NULL && (rd->header->flag & GAR_FLAG_ENC)) {
     free(rd->index);
   }
 
@@ -66,10 +67,10 @@ int gar_reader_open(gar_reader_t *rd, const char *file, const uint8_t *key) {
     memcpy(rd->enc_key, key, sizeof(rd->enc_key));
   }
 
-  if (sodium_is_zero(rd->header->enc_nonce, sizeof(rd->header->enc_nonce))) {
-    rd->index = (gar_entry_t *)(rd->src.ptr + rd->header->index_offset);
-    rd->index_count = rd->header->index_size / sizeof(*rd->index);
-  } else {
+  if (rd->header->flag & GAR_FLAG_ENC) {
+    rd->enc_nonces = rd->src.ptr + rd->header->index_offset +
+                     rd->header->index_size + crypto_secretbox_NONCEBYTES;
+
     rd->index = malloc(rd->header->index_size - crypto_secretbox_MACBYTES);
     if (rd->index == NULL) {
       gar_fmap_unmap(&rd->src);
@@ -78,7 +79,8 @@ int gar_reader_open(gar_reader_t *rd, const char *file, const uint8_t *key) {
 
     if (crypto_secretbox_open_easy(
             (uint8_t *)rd->index, rd->src.ptr + rd->header->index_offset,
-            rd->header->index_size, rd->header->enc_nonce, rd->enc_key) != 0) {
+            rd->header->index_size,
+            rd->enc_nonces - crypto_secretbox_NONCEBYTES, rd->enc_key) != 0) {
       free(rd->index);
       gar_fmap_unmap(&rd->src);
       return -1;
@@ -86,6 +88,10 @@ int gar_reader_open(gar_reader_t *rd, const char *file, const uint8_t *key) {
 
     rd->index_count = (rd->header->index_size - crypto_secretbox_MACBYTES) /
                       sizeof(*rd->index);
+  } else {
+    rd->index = (gar_entry_t *)(rd->src.ptr + rd->header->index_offset);
+    rd->index_count = rd->header->index_size / sizeof(*rd->index);
+    rd->enc_nonces = NULL;
   }
 
   return 0;
@@ -141,13 +147,15 @@ int gar_reader_read(gar_reader_t *rd, uint32_t id, uint8_t *ptr,
   uint64_t csize = entry.csize;
   int free_the_buffer = 0;
 
-  if (!sodium_is_zero(entry.enc_nonce, sizeof(entry.enc_nonce))) {
+  if (rd->header->flag & GAR_FLAG_ENC) {
     uint8_t *new_buffer = malloc(csize - crypto_secretbox_MACBYTES);
     if (new_buffer == NULL) {
       return -1;
     }
 
-    if (crypto_secretbox_open_easy(new_buffer, buffer, csize, entry.enc_nonce,
+    if (crypto_secretbox_open_easy(new_buffer, buffer, csize,
+                                   rd->enc_nonces +
+                                       id * crypto_secretbox_NONCEBYTES,
                                    rd->enc_key) != 0) {
       free(new_buffer);
       return -1;
@@ -160,6 +168,9 @@ int gar_reader_read(gar_reader_t *rd, uint32_t id, uint8_t *ptr,
 
   uint64_t usize = ZSTD_decompress(ptr, entry.usize, buffer, csize);
   if (ZSTD_isError(usize)) {
+    if (free_the_buffer) {
+      free(buffer);
+    }
     return 0;
   }
 
